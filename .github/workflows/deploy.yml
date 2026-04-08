@@ -1,38 +1,53 @@
-name: Deploy_GHRunner_Linux_ACI
+name: Deploy DocToDoor AI Chat (Develop)
 
 on:
-  workflow_dispatch:
-
-env:
-  RUNNER_VERSION: 2.293.0
-  ACI_RESOURCE_GROUP: 'Demo-ACI-GitHub-Runners-RG'
-  ACI_NAME: 'gh-runner-linux-01'
-  DNS_NAME_LABEL: 'gh-lin-01'
-  GH_OWNER: ${{ github.repository_owner }}
-  GH_REPOSITORY: 'LibreChat' #Change here to deploy self hosted runner ACI to another repo.
+  push:
+    branches:
+      - develop
 
 jobs:
-  deploy-gh-runner-aci:
+  build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
-      # checkout the repo
-      - name: 'Checkout GitHub Action'
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: 'Login via Azure CLI'
-        uses: azure/login@v1
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.ACCESS_TOKEN }}
 
-      - name: 'Deploy to Azure Container Instances'
-        uses: 'azure/aci-deploy@v1'
+      - name: Build and push Docker image (AMD64 only)
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            -f Dockerfile.multi \
+            --target api-build \
+            -t ghcr.io/doctodoor-us/d2d-chat:latest \
+            .
+          docker push ghcr.io/doctodoor-us/d2d-chat:latest
+
+      - name: Set up SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
         with:
-          resource-group: ${{ env.ACI_RESOURCE_GROUP }}
-          image: ${{ secrets.REGISTRY_LOGIN_SERVER }}/pwd9000-github-runner-lin:${{ env.RUNNER_VERSION }}
-          registry-login-server: ${{ secrets.REGISTRY_LOGIN_SERVER }}
-          registry-username: ${{ secrets.REGISTRY_USERNAME }}
-          registry-password: ${{ secrets.REGISTRY_PASSWORD }}
-          name: ${{ env.ACI_NAME }}
-          dns-name-label: ${{ env.DNS_NAME_LABEL }}
-          environment-variables: GH_TOKEN=${{ secrets.PAT_TOKEN }} GH_OWNER=${{ env.GH_OWNER }} GH_REPOSITORY=${{ env.GH_REPOSITORY }}
-          location: 'eastus'
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+
+      - name: Deploy to server via SSH
+        run: |
+          ssh -o StrictHostKeyChecking=no hardik@129.158.245.245 \
+            "cd /var/www/docker/d2d-ai/chat.doctodoor.com \
+            && docker compose pull \
+            && docker compose up -d"
+
+      - name: Verify deployment
+        run: |
+          echo "Waiting for services to start..."
+          sleep 30
+          ssh -o StrictHostKeyChecking=no hardik@129.158.245.245 \
+            "cd /var/www/docker/d2d-ai/chat.doctodoor.com \
+            && docker compose ps \
+            && echo 'Checking health endpoint on port 3080...' \
+            && curl -f http://localhost:3080/health || (echo 'Health check failed, checking port 8000 as fallback...' && curl -f http://localhost:8000/health)"

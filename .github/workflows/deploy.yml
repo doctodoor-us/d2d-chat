@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm64
 
     steps:
       - name: Checkout repository
@@ -20,10 +20,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.ACCESS_TOKEN }}
 
-      - name: Build and push Docker image (AMD64 only)
+      - name: Build and push Docker image (ARM64)
         run: |
           docker build \
-            --platform linux/amd64 \
+            --platform linux/arm64 \
             -f Dockerfile.multi \
             --target api-build \
             -t ghcr.io/doctodoor-us/d2d-chat:latest \

@@ -37,8 +37,8 @@ jobs:
 
       - name: Deploy to server via SSH
         run: |
-          ssh -o StrictHostKeyChecking=no hardik@54.202.184.71 \
-            "cd /var/www/d2d-ai/chat.vytrac.com \
+          ssh -o StrictHostKeyChecking=no hardik@3.233.132.36 \
+            "cd /var/www/d2d-ai/revella-ai.doctodoor.com \
             && docker compose pull \
             && docker compose up -d"
 
@@ -46,8 +46,8 @@ jobs:
         run: |
           echo "Waiting for services to start..."
           sleep 30
-          ssh -o StrictHostKeyChecking=no hardik@54.202.184.71 \
-            "cd /var/www/d2d-ai/chat.vytrac.com \
+          ssh -o StrictHostKeyChecking=no hardik@3.233.132.36 \
+            "cd /var/www/d2d-ai/revella-ai.doctodoor.com \
             && docker compose ps \
             && echo 'Checking health endpoint on port 3080...' \
             && curl -f http://localhost:3080/health || (echo 'Health check failed, checking port 8000 as fallback...' && curl -f http://localhost:8000/health)"
